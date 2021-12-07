@@ -23,7 +23,7 @@ spec:
             arguments:
               parameters:
                 - name: repo
-                  value: https://github.com/cod-r/borgwarner.git
+                  value: https://github.com/eSolutionsGrup/bwlab-code.git
         - - name: build
             template: build
         - - name: docker-push
