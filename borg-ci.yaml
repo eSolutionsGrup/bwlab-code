@@ -1,0 +1,113 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: borg-ci-
+
+spec:
+  entrypoint: borg-ci
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: longhorn-single-replica
+        resources:
+          requests:
+            storage: 2Gi
+
+  templates:
+    - name: borg-ci
+      steps:
+        - - name: git-clone
+            template: git-clone
+            arguments:
+              parameters:
+                - name: repo
+                  value: https://github.com/cod-r/borgwarner.git
+        - - name: build
+            template: build
+        - - name: docker-push
+            template: docker-push
+            arguments:
+              parameters:
+                - name: path
+                  value: /
+                - name: image
+                  value: test:v1
+
+    - name: git-clone
+      inputs:
+        parameters:
+          - name: repo
+        artifacts:
+          - name: source-code
+            path: /root/src
+            git:
+              repo: "{{inputs.parameters.repo}}"
+              revision: "master"
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args: ["git status && ls -l"]
+        workingDir: /root/src
+        volumeMounts:
+          - name: workdir
+            mountPath: /root
+
+    - name: build
+      container:
+        image: openjdk:11-jdk-slim
+        workingDir: /root/src
+        command: [sh, -c]
+        args: ["./mvnw clean install"]
+        resources:
+          requests:
+            memory: 1024Mi
+            cpu: 200m
+        volumeMounts:
+          - name: workdir
+            mountPath: /root
+
+    - name: docker-push
+      inputs:
+        parameters:
+          - name: path
+          - name: image
+      # Mount the configuration so we can push the image.
+      # This should create the /.docker/config.json file.
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: nexus
+        - name: docker-insecure-config
+          configMap:
+            name: docker-insecure-config
+      container:
+        image: moby/buildkit:v0.7.2-rootless
+        volumeMounts:
+          - name: workdir
+            mountPath: /root
+          - name: docker-config
+            mountPath: /.docker
+          - name: docker-insecure-config
+            mountPath: /etc/docker
+        workingDir: /root/src
+        env:
+          - name: BUILDKITD_FLAGS
+            value: --oci-worker-no-process-sandbox
+          - name: DOCKER_CONFIG
+            value: /.docker
+        command:
+          - buildctl-daemonless.sh
+        args:
+          - build
+          - --frontend
+          - dockerfile.v0
+          - --local
+          - context=.
+          - --local
+          - dockerfile=.
+          - --output
+          - type=image,registry.insecure=true,name=docker-nexus.borg1.bwlab/{{inputs.parameters.image}},push=true
+
+
