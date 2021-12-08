@@ -2,7 +2,6 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: borg-ci-
-
 spec:
   entrypoint: borg-ci
   volumeClaimTemplates:
@@ -24,6 +23,9 @@ spec:
               parameters:
                 - name: repo
                   value: https://github.com/eSolutionsGrup/bwlab-code.git
+                - name: git-secret
+                  value: github-login
+
         - - name: build
             template: build
         - - name: docker-push
@@ -33,22 +35,34 @@ spec:
                 - name: path
                   value: /
                 - name: image
-                  value: test:v3
+                  value: test:v4
 
     - name: git-clone
       inputs:
         parameters:
           - name: repo
+          - name: git-secret
         artifacts:
           - name: source-code
             path: /root/src
             git:
               repo: "{{inputs.parameters.repo}}"
               revision: "master"
+              # do a shallow clone
+              depth: 1
+              # first create a secret containing the username and github token
+              # kubectl create secret generic github-login --from-literal=username=cod-r --from-literal=password=your-token
+              usernameSecret:
+                name: "{{inputs.parameters.git-secret}}"
+                key: username
+              passwordSecret:
+                name: "{{inputs.parameters.git-secret}}"
+                key: password
+
       container:
         image: alpine/git
-        command: [sh, -c]
-        args: ["git status && ls -l"]
+        command: [ sh, -c ]
+        args: [ "git status && ls -l" ]
         workingDir: /root/src
         volumeMounts:
           - name: workdir
@@ -58,8 +72,8 @@ spec:
       container:
         image: openjdk:11-jdk-slim
         workingDir: /root/src
-        command: [sh, -c]
-        args: ["./mvnw clean install"]
+        command: [ sh, -c ]
+        args: [ "./mvnw clean install" ]
         resources:
           requests:
             memory: 1024Mi
@@ -78,7 +92,9 @@ spec:
       volumes:
         - name: docker-config
           secret:
-            secretName: nexus
+            # first create a new secret with docker credentials using the internal k8s nexus service url
+            # kubectl create secret docker-registry nexus-internal-url --docker-server=nexus-docker-service.nexus:5000 --docker-username=admin --docker-password=your-pass
+            secretName: nexus-internal-url
             items:
               - key: .dockerconfigjson
                 path: config.json
@@ -107,6 +123,6 @@ spec:
           - --local
           - dockerfile=.
           - --output
-          - type=image,registry.insecure=true,name=docker-nexus.borg1.bwlab/{{inputs.parameters.image}},push=true
+          - type=image,registry.insecure=true,name=nexus-docker-service.nexus:5000/{{inputs.parameters.image}},push=true
 
 
