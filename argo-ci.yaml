@@ -35,7 +35,9 @@ spec:
                 - name: path
                   value: /
                 - name: image
-                  value: test:v4
+                  value: test
+                - name: tag
+                  value: "{{steps.git-clone.outputs.parameters.tag}}"
 
     - name: git-clone
       inputs:
@@ -62,11 +64,17 @@ spec:
       container:
         image: alpine/git
         command: [ sh, -c ]
-        args: [ "git status && ls -l" ]
+        # save the git short commit to a file to use it later for tagging the docker image
+        args: [ "git status && ls -l && git rev-parse --short HEAD > /root/git-commit" ]
         workingDir: /root/src
         volumeMounts:
           - name: workdir
             mountPath: /root
+      outputs:
+        parameters:
+          - name: tag
+            valueFrom:
+              path: /root/git-commit
 
     - name: build
       container:
@@ -87,6 +95,7 @@ spec:
         parameters:
           - name: path
           - name: image
+          - name: tag
       # Mount the configuration so we can push the image.
       # This should create the /.docker/config.json file.
       volumes:
@@ -123,6 +132,6 @@ spec:
           - --local
           - dockerfile=.
           - --output
-          - type=image,registry.insecure=true,name=nexus-docker-service.nexus:5000/{{inputs.parameters.image}},push=true
+          - type=image,registry.insecure=true,name=nexus-docker-service.nexus:5000/{{inputs.parameters.image}}:{{inputs.parameters.tag}},push=true
 
 
