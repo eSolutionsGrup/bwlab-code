@@ -13,7 +13,6 @@ public class BorgwarnerApplication {
         SpringApplication.run(BorgwarnerApplication.class, args);
     }
 
-
     @GetMapping
     public String helloWorld() {
         return "Hello World!!!";
