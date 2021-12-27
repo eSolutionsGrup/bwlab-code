@@ -9,9 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class BorgwarnerApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(BorgwarnerApplication.class, args);
-    }
 
     @GetMapping
     public String helloWorld() {
