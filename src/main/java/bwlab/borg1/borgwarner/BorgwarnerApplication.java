@@ -15,7 +15,7 @@ public class BorgwarnerApplication {
 
     @GetMapping
     public String helloWorld() {
-        return "Hello World!";
+        return "Hello";
     }
 
 }
