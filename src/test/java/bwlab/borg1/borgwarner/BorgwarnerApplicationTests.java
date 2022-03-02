@@ -34,6 +34,6 @@ class BorgwarnerApplicationTests {
         mockMvc.perform(get("/"))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(content().string(equalTo("revision 2")));
+                .andExpect(content().string(equalTo("Hello World!")));
     }
 }

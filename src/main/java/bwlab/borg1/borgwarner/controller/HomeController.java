@@ -8,6 +8,6 @@ public class HomeController {
 
     @GetMapping("/")
     public String helloWorld() {
-        return "revision 2";
+        return "Hello World!";
     }
 }
